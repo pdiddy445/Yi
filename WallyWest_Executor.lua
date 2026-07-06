@@ -1,7 +1,7 @@
 --[[
-    WALLY WEST SPEEDSTER EFFECT - EXECUTOR SCRIPT
+    WALLY WEST SPEEDSTER EFFECT - EXECUTOR SCRIPT (PC + MOBILE)
     Paste this into your executor (Synapse X, Script-Ware, etc.)
-    Press E to activate super speed
+    PC: Press E to activate | Mobile: Tap the button to activate
 ]]
 
 local Players = game:GetService("Players")
@@ -20,7 +20,7 @@ local CONFIG = {
     SLOW_MOTION_SPEED = 0.3,          -- How slow world becomes (0.3 = 70% slower)
     EFFECT_DURATION = 5,              -- Duration in seconds
     COOLDOWN = 8,                     -- Cooldown in seconds
-    ACTIVATION_KEY = Enum.KeyCode.E,  -- Press E to activate
+    ACTIVATION_KEY = Enum.KeyCode.E,  -- Press E to activate (PC only)
     ENABLE_TRAIL = true,              -- Speed trail particles
     ENABLE_BLUR = true,               -- Camera blur effect
     ENABLE_SOUND = true,              -- Activation sound
@@ -33,6 +33,77 @@ local originalSpeed = humanoid.WalkSpeed
 local speedTrails = {}
 local originalSpeeds = {}
 local blurEffect = nil
+local speedsterButton = nil
+
+-- ===== GUI SETUP FOR MOBILE =====
+local function createSpeedsterGUI()
+    -- Create ScreenGui
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "SpeedsterGUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = player:WaitForChild("PlayerGui")
+    
+    -- Create Button
+    local button = Instance.new("TextButton")
+    button.Name = "SpeedsterButton"
+    button.Size = UDim2.new(0, 100, 0, 50)
+    button.Position = UDim2.new(0, 10, 1, -60) -- Bottom left corner
+    button.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+    button.BackgroundTransparency = 0.3
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextSize = 14
+    button.Font = Enum.Font.GothamBold
+    button.Text = "⚡ SPEED"
+    button.BorderSizePixel = 2
+    button.BorderColor3 = Color3.fromRGB(255, 150, 0)
+    button.Parent = screenGui
+    
+    -- Add corner radius
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = button
+    
+    -- Status label
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Name = "StatusLabel"
+    statusLabel.Size = UDim2.new(0, 120, 0, 30)
+    statusLabel.Position = UDim2.new(0, 10, 1, -100)
+    statusLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    statusLabel.BackgroundTransparency = 0.5
+    statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    statusLabel.TextSize = 12
+    statusLabel.Font = Enum.Font.Gotham
+    statusLabel.Text = "Ready!"
+    statusLabel.BorderSizePixel = 0
+    statusLabel.Parent = screenGui
+    
+    local corner2 = Instance.new("UICorner")
+    corner2.CornerRadius = UDim.new(0, 6)
+    corner2.Parent = statusLabel
+    
+    -- Button click connection
+    button.MouseButton1Click:Connect(function()
+        activateEffect()
+    end)
+    
+    return button, statusLabel
+end
+
+-- Function: Update status display
+local function updateStatusDisplay()
+    if not speedsterButton then return end
+    
+    if isActive then
+        speedsterButton.Text = "⚡ ACTIVE"
+        speedsterButton.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+    elseif canUse then
+        speedsterButton.Text = "⚡ SPEED"
+        speedsterButton.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+    else
+        speedsterButton.Text = "⏳ CD"
+        speedsterButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    end
+end
 
 -- Function: Create speed trail effect
 local function createSpeedTrail()
@@ -138,13 +209,14 @@ local function resetWorldSpeed()
 end
 
 -- Function: Activate speedster effect
-local function activateEffect()
+function activateEffect()
     if not canUse or isActive then
         return
     end
     
     isActive = true
     canUse = false
+    updateStatusDisplay()
     
     -- Increase player speed
     humanoid.WalkSpeed = originalSpeed * (1 / CONFIG.SPEED_MULTIPLIER)
@@ -185,14 +257,18 @@ function deactivateEffect()
     resetWorldSpeed()
     
     print("⚡ Speedster deactivated. Cooldown: " .. CONFIG.COOLDOWN .. "s")
+    updateStatusDisplay()
     
     -- Cooldown
     wait(CONFIG.COOLDOWN)
     canUse = true
     print("⚡ Speedster ready!")
+    updateStatusDisplay()
 end
 
--- Input detection
+-- ===== INPUT DETECTION =====
+
+-- PC Keyboard Input
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     
@@ -201,10 +277,37 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
+-- Mobile Touch Input (alternative method)
+local touchStarted = false
+UserInputService.TouchBegan:Connect(function(touch, gameProcessed)
+    if gameProcessed then return end
+    
+    local touchPosition = touch.Position
+    local screenSize = player:WaitForChild("PlayerGui").AbsoluteSize
+    
+    -- Check if touch is in bottom-left corner (button area)
+    if touchPosition.X < 120 and touchPosition.Y > screenSize.Y - 110 then
+        touchStarted = true
+    end
+end)
+
+UserInputService.TouchEnded:Connect(function(touch, gameProcessed)
+    if touchStarted then
+        activateEffect()
+        touchStarted = false
+    end
+end)
+
 -- Cleanup on respawn
 player.CharacterAdded:Connect(function()
     deactivateEffect()
 end)
 
-print("⚡ Wally West Speedster Loaded! Press " .. tostring(CONFIG.ACTIVATION_KEY) .. " to activate")
+-- ===== INITIALIZATION =====
+speedsterButton, statusLabel = createSpeedsterGUI()
+updateStatusDisplay()
+
+print("⚡ Wally West Speedster Loaded!")
+print("PC: Press " .. tostring(CONFIG.ACTIVATION_KEY) .. " to activate")
+print("Mobile: Tap the ⚡ SPEED button")
 print("Duration: " .. CONFIG.EFFECT_DURATION .. "s | Cooldown: " .. CONFIG.COOLDOWN .. "s")
